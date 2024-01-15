@@ -1,5 +1,16 @@
-// Description: JVNDBから直近1ヶ月の脆弱性情報を取得する
+// Description: JVNDBから脆弱性情報を取得する
 function start_search_getVulnOverviewList() {
+
+  // 範囲の指定 n=指定なし、m=直近1ヶ月
+  var setting_rangeDatePublished = 'm';
+
+  var prefix_message = '';
+  if (setting_rangeDatePublished === 'n') {
+    prefix_message = '全期間';
+  }else if (setting_rangeDatePublished === 'm') {
+    prefix_message = '直近1ヶ月';
+  }
+
   // スプレッドシートの取得
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   var pidSheet = sheet.getSheetByName('10_pid');
@@ -42,7 +53,7 @@ function start_search_getVulnOverviewList() {
     }
 
     // 脆弱性情報を取得
-    var vulnData = search_getVulnOverviewList(pidStr, alreadyKnownVulnId);
+    var vulnData = search_getVulnOverviewList(pidStr, alreadyKnownVulnId, setting_rangeDatePublished);
 
     // 脆弱性情報の取得ができなかった場合はスキップ
     if(vulnData === false) {
@@ -66,13 +77,13 @@ function start_search_getVulnOverviewList() {
 
   // 1行もデータがない場合は「データなし」を表示
   if (rows.length === 0) {
-    rows.push(["脆弱性データなし"]);
+    rows.push([prefix_message + "の脆弱性データなし"]);
   }
   // 一度にすべての行を追加
   overviewSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
 
-function search_getVulnOverviewList(pid, alreadyKnownVulnId) {
+function search_getVulnOverviewList(pid, alreadyKnownVulnId, setting_rangeDatePublished) {
 
   var url = 'https://jvndb.jvn.jp/myjvn';
   var payload = {
@@ -80,7 +91,7 @@ function search_getVulnOverviewList(pid, alreadyKnownVulnId) {
     'feed': 'hnd',
     'productId': pid,
     'rangeDatePublic': 'n',
-    'rangeDatePublished': 'n', // n=指定なし、m=直近1年
+    'rangeDatePublished': setting_rangeDatePublished, // 範囲の指定 n=指定なし、m=直近1ヶ月
     'rangeDateFirstPublished': 'n'
   };
 
@@ -109,17 +120,28 @@ function search_getVulnOverviewList(pid, alreadyKnownVulnId) {
   var vulnData = entries.map(function(entry) {
 
     // RSS名前空間でタイトル、リンク、説明を取得
-    var title = entry.getChild('title', rdfNs).getText();
-    var link = entry.getChild('link', rdfNs).getText();
-    var description = entry.getChild('description', rdfNs).getText();
+    var titleElement = entry.getChild('title', rdfNs);
+    var title = titleElement ? titleElement.getText() : null;
+
+    var linkElement = entry.getChild('link', rdfNs);
+    var link = linkElement ? linkElement.getText() : null;
+
+    var descriptionElement = entry.getChild('description', rdfNs);
+    var description = descriptionElement ? descriptionElement.getText() : null;
 
     // sec 名前空間で識別子を取得
-    var identifier = entry.getChild('identifier', secNs).getText();
+    var identifierElement = entry.getChild('identifier', secNs);
+    var identifier = identifierElement ? identifierElement.getText() : null;
 
     Logger.log(title);
     Logger.log(link);
     Logger.log(description);
     Logger.log(identifier);
+
+    // 識別子が取得できなかった場合はスキップ
+    if (identifier === null) {
+      return false;
+    }
 
     // alreadyKnownVulnIdと比較して、既知の脆弱性IDの場合は、スキップ
     if (alreadyKnownVulnId.indexOf(identifier) !== -1) {
