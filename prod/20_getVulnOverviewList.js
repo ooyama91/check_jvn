@@ -1,7 +1,9 @@
+// Description: JVNDBから直近1ヶ月の脆弱性情報を取得する
 function start_search_getVulnOverviewList() {
   // スプレッドシートの取得
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
   var pidSheet = sheet.getSheetByName('10_pid');
+  const sheet_already_known_vuln_id = sheet.getSheetByName('18_already_known_vuln_id');
   var overviewSheet = sheet.getSheetByName('20_VulnOverviewList');
   var skippedPids = getSkippedPids(); // スキップするpidを取得  
 
@@ -12,6 +14,8 @@ function start_search_getVulnOverviewList() {
   // シートのクリア
   overviewSheet.getRange("A2").setValue("Loading...");
   overviewSheet.getRange(2, 1, overviewSheet.getLastRow()-2+1, overviewSheet.getLastColumn()).clear();
+
+  var rows = []; // 二次元配列を初期化
 
   // ヘッダー行を除いた全行をループ処理
   for (var i = 1; i < data.length; i++) {
@@ -29,15 +33,28 @@ function start_search_getVulnOverviewList() {
     }
 
     // pnameが「検索結果なし」の場合はスキップ
-    if (pname !== '検索結果なし') {
-      // 脆弱性情報を取得
-      Logger.log(pname + "____" + pidStr);
-      var vulnData = search_getVulnOverviewList(pidStr);
-      Logger.log(vulnData);
-      // overviewSheetに情報を書き込む
-      appendVulnDataToSheet(overviewSheet, row, vulnData);
+    if (pname === '検索結果なし') {
+      continue; // 次のループへスキップ
     }
+
+    // 脆弱性情報の取得
+    var vulnData = search_getVulnOverviewList(pid);
+
+    // データを二次元配列に追加
+    vulnData.forEach(function(data) {
+      var newRow = row.slice(0, 3); // name, pname, pid
+      newRow.push(data.identifier, data.link, data.title, data.description);
+      rows.push(newRow); // 二次元配列に行を追加
+    });
+
   }
+
+  // 1行もデータがない場合は「データなし」を表示
+  if (rows.length === 0) {
+    rows.push(["直近1ヶ月での脆弱性データなし"]);
+  }
+  // 一度にすべての行を追加
+  overviewSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
 
 function search_getVulnOverviewList(pid) {
@@ -48,19 +65,19 @@ function search_getVulnOverviewList(pid) {
     'feed': 'hnd',
     'productId': pid,
     'rangeDatePublic': 'n',
-    'rangeDatePublished': 'n',
+    'rangeDatePublished': 'm', // n=指定なし、m=直近1年
     'rangeDateFirstPublished': 'n'
   };
-  
+
   var options = {
     'method' : 'post',
     'payload' : payload
   };
-  
+
   var response = UrlFetchApp.fetch(url, options);
   var xml = response.getContentText();
   Logger.log(xml);
-  
+
  // XMLをパースして必要なデータを取得
   var document = XmlService.parse(xml);
   var root = document.getRootElement();
@@ -73,7 +90,7 @@ function search_getVulnOverviewList(pid) {
   var entries = root.getChildren('item', rdfNs);
   Logger.log("-----entries-----");
   Logger.log(entries);
-  
+
   var vulnData = entries.map(function(entry) {
 
     // RSS名前空間でタイトル、リンク、説明を取得
@@ -83,7 +100,7 @@ function search_getVulnOverviewList(pid) {
 
     // sec 名前空間で識別子を取得
     var identifier = entry.getChild('identifier', secNs).getText();
-    
+
     Logger.log(title);
     Logger.log(link);
     Logger.log(description);
@@ -94,20 +111,12 @@ function search_getVulnOverviewList(pid) {
       link: link,
       title: title,
       description: description
+      // modified: modified
+
     };
   });
   
   return vulnData;
-}
-
-
-function appendVulnDataToSheet(overviewSheet, originalRow, vulnData) {
-  // 各脆弱性データをシートに書き込む
-  vulnData.forEach(function(data) {
-    var newRow = originalRow.slice(0, 3); // name, pname, pid
-    newRow.push(data.identifier, data.link, data.title, data.description);
-    overviewSheet.appendRow(newRow);
-  });
 }
 
 // スクリプトを開始するための関数
@@ -117,12 +126,12 @@ function run() {
 
 function getSkippedPids() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet();
-  var fixPidSheet = sheet.getSheetByName('90_fix_pid');
+  var fixPidSheet = sheet.getSheetByName('15_ignore_pid');
   var data = fixPidSheet.getDataRange().getValues();
-  
-  // ヘッダーを除外し、pidのみのリストを作成
+
+  // ヘッダーを除外し、C列だけにして、pidのみのリストを作成
   var skippedPids = data.slice(1).map(function(row) {
-    return row[2].toString(); // pidが格納されている列のインデックスを指定（0始まり）
+    return row[2];
   });
 
   Logger.log(skippedPids);

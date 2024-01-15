@@ -1,7 +1,8 @@
+// Description: 00_pluginシートのプラグイン名を元に、10_pidシートにプラグインIDを検索して書き込む
 function searchAndWriteProductIDs() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var pluginsSheet = ss.getSheetByName('00_plugins');
-  var ignoreSheet = ss.getSheetByName('03_ignore_name');
+  var pluginsSheet = ss.getSheetByName('00_plugin');
+  var ignoreSheet = ss.getSheetByName('05_ignore_name');
   var pidSheet = ss.getSheetByName('10_pid');
 
   // プラグインの名前を取得
@@ -14,21 +15,26 @@ function searchAndWriteProductIDs() {
   pidSheet.getRange(2, 1).setValue("Loading...");
   pidSheet.getRange(2, 1, pidSheet.getLastRow()-2+1, 3).clearContent();
 
+  var rows = []; // 二次元配列を初期化
 
   for (var i = 0; i < pluginNames.length; i++) {
     var keyword = pluginNames[i].trim();
     if (keyword && !ignoredNames.includes(keyword)) {
       var productInfo = getProductList(keyword);
       if (productInfo.totalRes === '0') {
-        pidSheet.appendRow([keyword, '検索結果なし']);
+        rows.push([keyword, '検索結果なし', '']); // 二次元配列に行を追加
       } else {
         for (var j = 0; j < productInfo.products.length; j++) {
           var product = productInfo.products[j];
-          pidSheet.appendRow([keyword, product.pname, product.pid]);
+          rows.push([keyword, product.pname, product.pid]); // 二次元配列に行を追加
         }
       }
     }
   }
+
+  // 一度にすべての行を追加
+  pidSheet.getRange(2, 1, rows.length, 3).setValues(rows);
+
 }
 
 function getProductList(keyword) {
