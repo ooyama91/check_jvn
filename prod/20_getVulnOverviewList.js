@@ -15,7 +15,11 @@ function start_search_getVulnOverviewList() {
   overviewSheet.getRange("A2").setValue("Loading...");
   overviewSheet.getRange(2, 1, overviewSheet.getLastRow()-2+1, overviewSheet.getLastColumn()).clear();
 
-  var rows = []; // 二次元配列を初期化
+  // 既知の脆弱性ID（D2:D）を取得
+  var alreadyKnownVulnId = sheet_already_known_vuln_id.getRange('D2:D' + sheet_already_known_vuln_id.getLastRow()).getValues().flat();
+
+  // 結果用の二次元配列を初期化
+  var rows = []; 
 
   // ヘッダー行を除いた全行をループ処理
   for (var i = 1; i < data.length; i++) {
@@ -37,11 +41,22 @@ function start_search_getVulnOverviewList() {
       continue; // 次のループへスキップ
     }
 
-    // 脆弱性情報の取得
-    var vulnData = search_getVulnOverviewList(pid);
+    // 脆弱性情報を取得
+    var vulnData = search_getVulnOverviewList(pidStr, alreadyKnownVulnId);
+
+    // 脆弱性情報の取得ができなかった場合はスキップ
+    if(vulnData === false) {
+      continue; // 次のループへスキップ
+    }
 
     // データを二次元配列に追加
     vulnData.forEach(function(data) {
+
+      // falseの場合はスキップ
+      if (data === false) {
+        return;
+      }
+
       var newRow = row.slice(0, 3); // name, pname, pid
       newRow.push(data.identifier, data.link, data.title, data.description);
       rows.push(newRow); // 二次元配列に行を追加
@@ -51,13 +66,13 @@ function start_search_getVulnOverviewList() {
 
   // 1行もデータがない場合は「データなし」を表示
   if (rows.length === 0) {
-    rows.push(["直近1ヶ月での脆弱性データなし"]);
+    rows.push(["脆弱性データなし"]);
   }
   // 一度にすべての行を追加
   overviewSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 }
 
-function search_getVulnOverviewList(pid) {
+function search_getVulnOverviewList(pid, alreadyKnownVulnId) {
 
   var url = 'https://jvndb.jvn.jp/myjvn';
   var payload = {
@@ -65,7 +80,7 @@ function search_getVulnOverviewList(pid) {
     'feed': 'hnd',
     'productId': pid,
     'rangeDatePublic': 'n',
-    'rangeDatePublished': 'm', // n=指定なし、m=直近1年
+    'rangeDatePublished': 'n', // n=指定なし、m=直近1年
     'rangeDateFirstPublished': 'n'
   };
 
@@ -106,16 +121,19 @@ function search_getVulnOverviewList(pid) {
     Logger.log(description);
     Logger.log(identifier);
 
+    // alreadyKnownVulnIdと比較して、既知の脆弱性IDの場合は、スキップ
+    if (alreadyKnownVulnId.indexOf(identifier) !== -1) {
+      return false;
+    }
+
     return {
       identifier: identifier,
       link: link,
       title: title,
       description: description
-      // modified: modified
 
     };
   });
-  
   return vulnData;
 }
 
