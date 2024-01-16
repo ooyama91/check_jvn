@@ -39,7 +39,7 @@ function slack_notification() {
     const DM_URL = PropertiesService.getScriptProperties().getProperty('DM_URL');
 
 
-    var postUrl = SERVER_ALERT_URL;
+    var postUrl = DM_URL;
     var username = 'bot';  // 通知時に表示されるユーザー名
     var icon = ':traffic_light:';  // 通知時に表示されるアイコン
 

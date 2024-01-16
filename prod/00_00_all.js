@@ -1,5 +1,5 @@
 //00〜80の処理を実行する
-function start_search_getVulnOverviewList() {
+function all_start() {
 
     fetch_plugin_ref();
     searchAndWriteProductIDs();

@@ -32,8 +32,18 @@ function searchAndWriteProductIDs() {
     }
   }
 
+  // rowsの列数を全ての行で最大の列数に揃える
+  var maxColumns = rows.reduce(function(max, row) {
+    return Math.max(max, row.length);
+  }, 0);
+  rows = rows.map(function(row) {
+    return row.concat(new Array(maxColumns - row.length).fill(''));
+  });
+
+  Logger.log(rows);
+
   // 一度にすべての行を追加
-  pidSheet.getRange(2, 1, rows.length, 3).setValues(rows);
+  pidSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 
 }
 
@@ -93,23 +103,15 @@ function getProductList(keyword) {
   return { totalRes: totalRes, products: products };
 }
 
-
-
-// function getProductList(keyword) {
-//   var url = 'https://jvndb.jvn.jp/myjvn';
-//   var payload = {
-//     'method': 'getProductList',
-//     'feed': 'hnd',
-//     'keyword': keyword
-//   };
-
-//   var options = {
-//     'method' : 'post',
-//     'payload' : payload
-//   };
-
-//   var response = UrlFetchApp.fetch(url, options);
-
-//   // レスポンスをログに出力
-//   Logger.log(response.getContentText());
-// }
+/*
+TODO：件数が多かったりして、サーバーエラーが出た場合の回避方法を考える
+<Result 
+version="3.3" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xmlns="http://jvndb.jvn.jp/myjvn/Results" 
+xmlns:mjres="http://jvndb.jvn.jp/myjvn/Results" 
+xmlns:status="http://jvndb.jvn.jp/myjvn/Status" 
+xsi:schemaLocation="http://jvndb.jvn.jp/myjvn/Results https://jvndb.jvn.jp/schema/results_3.3.xsd">
+    <status:Status version="3.3" method="getProductList" lang="ja" retCd="1" retMax="" errCd="PR02990356" errMsg="サーバ側でエラーが発生しました。しばらく時間を置いてから再試行してください。問題が解決しない場合は管理者にお問い合わせください。" totalRes="" totalResRet="" firstRes="" feed="hnd" keyword="CGB+for+alpine+%E2%80%94+CGB+Gutenberg+Block+Plugin"/>
+  </Result>
+*/
