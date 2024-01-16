@@ -2,7 +2,7 @@
 function all_start() {
 
     fetch_plugin_ref();
-    searchAndWriteProductIDs();
+    searchAndWriteProductIDs(0, 500);
     start_search_getVulnOverviewList();
     slack_notification();
 

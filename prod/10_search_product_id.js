@@ -1,5 +1,19 @@
 // Description: 00_pluginシートのプラグイン名を元に、10_pidシートにプラグインIDを検索して書き込む
-function searchAndWriteProductIDs() {
+// 引数として最初の行数と、最後の行数を受け取る
+function searchAndWriteProductIDs(start_count, end_count) {
+
+  // start_rowとend_rowを直接指定する場合
+  // var start_count = 0;
+  // var end_count = 10;
+
+  // start_rowとend_row、それぞれ指定がなかった場合、0~500までを指定する
+  if (start_count === undefined ) {
+    start_count = 0;
+  }
+  if (end_count === undefined ) {
+    end_count = 500;
+  }
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pluginsSheet = ss.getSheetByName('00_plugin');
   var ignoreSheet = ss.getSheetByName('05_ignore_name');
@@ -11,14 +25,19 @@ function searchAndWriteProductIDs() {
   // ignoreシートから除外するプラグイン名を取得
   var ignoredNames = ignoreSheet.getRange('A2:A' + ignoreSheet.getLastRow()).getValues().flat();
 
-  //シートのいったんクリア
-  pidSheet.getRange(2, 1).setValue("Loading...");
-  pidSheet.getRange(2, 1, pidSheet.getLastRow()-2+1, 3).clearContent();
-
   var rows = []; // 二次元配列を初期化
 
-  for (var i = 0; i < pluginNames.length; i++) {
+  var actualStart = Math.max(0, start_count); // start_countが0未満の場合は0を使用
+  var actualEnd = Math.min(pluginNames.length, end_count); // end_countがpluginNames.lengthを超える場合はpluginNames.lengthを使用
+  for (var i = actualStart; i < actualEnd; i++) {
     var keyword = pluginNames[i].trim();
+    // URLとして扱えない文字があった場合、空白に置き換える
+    keyword = keyword.replace(/[\s\(\)\[\]\{\}]/g, ' ');
+    keyword = keyword.replace(/[\s]+/g, ' ');
+    keyword = keyword.replace(/ /g, ' ');
+    // Em Dashをハイフンに置き換える
+    keyword = keyword.replace(/—/g, ' ');
+    Logger.log(keyword);
     if (keyword && !ignoredNames.includes(keyword)) {
       var productInfo = getProductList(keyword);
       if (productInfo.totalRes === '0') {
@@ -33,16 +52,19 @@ function searchAndWriteProductIDs() {
   }
 
   // rowsの列数を全ての行で最大の列数に揃える
-  var maxColumns = rows.reduce(function(max, row) {
-    return Math.max(max, row.length);
-  }, 0);
-  rows = rows.map(function(row) {
-    return row.concat(new Array(maxColumns - row.length).fill(''));
-  });
+  // var maxColumns = rows.reduce(function(max, row) {
+  //   return Math.max(max, row.length);
+  // }, 0);
+  // rows = rows.map(function(row) {
+  //   return row.concat(new Array(maxColumns - row.length).fill(''));
+  // });
 
-  Logger.log(rows);
+  //rowsが空の場合は終了
+  if (rows.length === 0) {
+    return;
+  }
 
-  // 一度にすべての行を追加
+  // rowsに一度にすべての行を追加
   pidSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
 
 }
